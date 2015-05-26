@@ -1,6 +1,6 @@
 # BEncode
 
-TODO: Write a gem description
+A bencode encoder/decoder.
 
 ## Installation
 
@@ -10,22 +10,20 @@ Add this line to your application's Gemfile:
 gem 'b_encode'
 ```
 
-And then execute:
+Or install it yourself:
 
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install b_encode
+```sh
+$ gem install b_encode
+```
 
 ## Usage
 
-TODO: Write usage instructions here
+#### Encoding
 
-## Contributing
+```ruby
+"foo".bencode # => "3:foo"
+123.bencode   # => "i123e"
 
-1. Fork it ( https://github.com/[my-github-username]/b_encode/fork )
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+["foo", 123].bencode   # => "l3:fooi123ee"
+{"foo" => 123}.bencode # => "d3:fooi123ee"
+```
