@@ -27,3 +27,12 @@ $ gem install b_encode
 ["foo", 123].bencode   # => "l3:fooi123ee"
 {"foo" => 123}.bencode # => "d3:fooi123ee"
 ```
+
+#### Decoding
+```ruby
+BEncode.decode "3:foo" # => "foo"
+BEncode.decode "i123e" # => 123
+
+BEncode.decode "l3:fooi123ee" # => ["foo", 123]
+BEncode.decode "d3:fooi123ee" # => {"foo" => 123}
+```
