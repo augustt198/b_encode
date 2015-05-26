@@ -172,8 +172,132 @@ rb_hash_bencode(VALUE hash) {
     return str;
 }
 
-void Init_b_encode(void)
-{
+#define EOF_CHECK(ptr, len)\
+    if (*(ptr) >= (len))\
+        rb_raise(rb_eIOError, "Unexpected EOF");
+
+VALUE decode_any(char *str, int *idx_ptr, int len);
+
+VALUE decode_integer(char *str, int *idx_ptr, int len) {
+    int strlen = 2; // "i"<integer>"e"
+
+    EOF_CHECK(idx_ptr, len);
+    int neg = 0; // bool
+    if (str[*idx_ptr] == '-') {
+        neg = 1;
+        
+        strlen++;
+        *idx_ptr += 1;
+        EOF_CHECK(idx_ptr, len);
+    }
+
+    long num = 0;
+    while (rb_isdigit(str[*idx_ptr])) {
+        num = num * 10 + (str[*idx_ptr] - '0');
+        strlen++;
+        
+        *idx_ptr += 1;
+        EOF_CHECK(idx_ptr, len);
+    }
+
+    if (neg)
+        num = -num;
+
+    if (str[*idx_ptr] != 'e')
+        rb_raise(rb_eRuntimeError, "Expected 'e'");
+    *idx_ptr += 1;
+
+    return LONG2NUM(num);
+}
+
+VALUE decode_string(char *str, int *idx_ptr, int len, char dig) {
+    EOF_CHECK(idx_ptr, len);
+    int strlen = dig - '0';
+
+    while (rb_isdigit(str[*idx_ptr])) {
+        strlen = strlen * 10 + (str[*idx_ptr] - '0');
+        strlen++;
+        *idx_ptr += 1;
+        EOF_CHECK(idx_ptr, len);
+    }
+
+    if (str[*idx_ptr] != ':')
+        rb_raise(rb_eRuntimeError, "Expected ':', got '%c'", str[*idx_ptr]);
+    *idx_ptr += 1;
+
+    if (*idx_ptr + strlen > len)
+        rb_raise(rb_eIOError, "Unexpected EOF");
+
+    VALUE rb_str = rb_str_new(NULL, strlen);
+
+    memcpy(RSTRING_PTR(rb_str), str + *idx_ptr, strlen);
+    *idx_ptr += strlen;
+
+    return rb_str;
+}
+
+VALUE decode_list(char *str, int *idx_ptr, int len) {
+    EOF_CHECK(idx_ptr, len);
+
+    VALUE ary = rb_ary_new();
+
+    while (str[*idx_ptr] != 'e') {
+        VALUE elem = decode_any(str, idx_ptr, len);
+        rb_ary_push(ary, elem);
+        EOF_CHECK(idx_ptr, len);
+    }
+    *idx_ptr += 1;
+
+    return ary;
+}
+
+VALUE decode_dict(char *str, int *idx_ptr, int len) {
+    EOF_CHECK(idx_ptr, len);
+
+    VALUE hash = rb_hash_new();
+
+    while (str[*idx_ptr] != 'e') {
+        VALUE key = decode_any(str, idx_ptr, len);
+        EOF_CHECK(idx_ptr, len);
+        VALUE val = decode_any(str, idx_ptr, len);
+        EOF_CHECK(idx_ptr, len);
+
+        rb_hash_aset(hash, key, val);
+    }
+    *idx_ptr += 1;
+
+    return hash;
+}
+
+VALUE decode_any(char *str, int *idx_ptr, int len) {
+    EOF_CHECK(idx_ptr, len);
+    char prefix = str[*idx_ptr];
+    *idx_ptr += 1;
+
+    switch (prefix) {
+        case 'i':
+            return decode_integer(str, idx_ptr, len);
+        case 'l':
+            return decode_list(str, idx_ptr, len);
+        case 'd':
+            return decode_dict(str, idx_ptr, len);
+        default:
+            if (rb_isdigit(prefix)) {
+                return decode_string(str, idx_ptr, len, prefix);
+            }
+        rb_raise(rb_eRuntimeError, "Unexpected character '%c'", prefix);            
+    }
+
+    return Qnil;
+}
+
+VALUE rb_bencode_decode(VALUE mod, VALUE str) {
+    int idx = 0;
+
+    return decode_any(RSTRING_PTR(str), &idx, RSTRING_LEN(str));
+}
+
+void Init_b_encode(void) {
     rb_mBEncode = rb_define_module("BEncode");
     
     // String#bencode and String#bencode!
@@ -188,4 +312,6 @@ void Init_b_encode(void)
 
     // Hash#bencode
     rb_define_method(rb_cHash, "bencode", rb_hash_bencode, 0);
+
+    rb_define_singleton_method(rb_mBEncode, "decode", rb_bencode_decode, 1);
 }
