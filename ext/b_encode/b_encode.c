@@ -216,7 +216,6 @@ VALUE decode_string(char *str, int *idx_ptr, int len, char dig) {
 
     while (rb_isdigit(str[*idx_ptr])) {
         strlen = strlen * 10 + (str[*idx_ptr] - '0');
-        strlen++;
         *idx_ptr += 1;
         EOF_CHECK(idx_ptr, len);
     }
@@ -285,7 +284,7 @@ VALUE decode_any(char *str, int *idx_ptr, int len) {
             if (rb_isdigit(prefix)) {
                 return decode_string(str, idx_ptr, len, prefix);
             }
-        rb_raise(rb_eRuntimeError, "Unexpected character '%c'", prefix);            
+        rb_raise(rb_eRuntimeError, "Unexpected character '%c' at index %d", prefix, *idx_ptr);
     }
 
     return Qnil;
